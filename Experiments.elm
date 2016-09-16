@@ -5,6 +5,7 @@ import Html exposing (Html, div, text)
 import Color exposing (rgb)
 import Graphics.Render as Render
 import AnimationFrame
+import Time
 
 
 main : Program Never
@@ -24,6 +25,7 @@ main =
 type alias Model =
     { angle : Float
     , board : List Vec3
+    , acumulate : Float
     }
 
 
@@ -37,15 +39,33 @@ toRenderPoint vec3 =
         ( x, y, z ) =
             vec3
 
-        dz =
-            z + 50
+        pZ =
+            z - 30
     in
-        ( x / dz, y / dz )
+        ( x / pZ, y / pZ )
+
+
+d =
+    600
+
+
+zIdx =
+    0
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( { angle = 0.001, board = [ ( -100, -100, 0 ), ( -100, 100, 0 ), ( 100, 100, 0 ), ( 100, -100, 0 ) ] }, Cmd.none )
+    ( { angle = 0.01
+      , board =
+            [ ( -d, -d, zIdx )
+            , ( -d, d, -zIdx )
+            , ( d, d, -zIdx )
+            , ( d, -d, zIdx )
+            ]
+      , acumulate = 0
+      }
+    , Cmd.none
+    )
 
 
 
@@ -65,51 +85,49 @@ updateBoard model =
                     point
 
                 ca =
-                    cos model.angle
+                    model.angle |> degrees |> cos
 
                 sa =
-                    sin model.angle
-
-                cx =
-                    x * ca
-
-                cy =
-                    (y - 50) * ca
-
-                cz =
-                    (z - 50) * ca
-
-                sx =
-                    x * sa
-
-                sy =
-                    (y - 50) * sa
-
-                sz =
-                    (z - 50) * sa
-
-                zz =
-                    z
+                    model.angle |> degrees |> sin
 
                 newX =
                     x
 
                 newY =
-                    cy + sz
+                    ca * y + sa * z
 
                 newZ =
-                    cz - sy
+                    ca * z - sa * y
             in
                 ( newX, newY, newZ )
         )
         model.board
 
 
+maxAcumulate =
+    1
+
+
 update : Msg -> Model -> ( Model, Cmd Msg )
 update message model =
     case message of
         Tick time ->
-            ( { model | board = updateBoard model }, Cmd.none )
+            let
+                newAngle =
+                    if model.acumulate > maxAcumulate then
+                        if model.angle > 0 then
+                            -model.angle
+                        else
+                            model.angle
+                    else if model.acumulate < -maxAcumulate then
+                        if model.angle < 0 then
+                            -model.angle
+                        else
+                            model.angle
+                    else
+                        model.angle
+            in
+                ( { model | angle = newAngle, board = updateBoard model, acumulate = model.acumulate + model.angle }, Cmd.none )
 
 
 
@@ -134,6 +152,7 @@ board model =
 view : Model -> Html Msg
 view model =
     div []
-        [ board model
+        [ div [] [ model |> toString |> text ]
+        , board model
             |> Render.svg 500 500
         ]
